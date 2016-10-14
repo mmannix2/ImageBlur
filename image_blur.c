@@ -3,6 +3,7 @@
 #include <string.h>
 
 #define IDENTIFIER "P3"
+#define BLUR_AMOUNT 50
 
 #define DEBUG
 
@@ -59,7 +60,8 @@ int read_file(const char* filename, struct Image* image) {
         //Allocate image->pixels
         image->width = width;
         image->height = height;
-        image->pixels = (struct Pixel*)malloc(sizeof(struct Pixel*) * (width * height));
+        image->pixels = (struct Pixel*)malloc(sizeof(struct Pixel*) *
+            (width * height));
         
         //Read in pixels
         #ifdef DEBUG
@@ -100,8 +102,7 @@ int write_file( const char* filename, struct Image* image) {
     if(img_file != NULL) {
         //Write IDENTIFIER, width, height, and max color value
         fprintf(img_file, "%s\n", IDENTIFIER);
-        fprintf(img_file, "%d\n", image->width);
-        fprintf(img_file, "%d\n", image->height);
+        fprintf(img_file, "%d %d\n", image->width, image->height);
         fprintf(img_file, "%d\n", 255);
         
         //Write pixels
@@ -109,12 +110,14 @@ int write_file( const char* filename, struct Image* image) {
         printf("Writing %d pixels: \n", image->width * image->height); 
         #endif
         for(int i = 0; i < image->width * image->height; i++) {
-            fprintf(img_file, "%d %d %d   ",
-                image->pixels[i].red,
-                image->pixels[i].green,
-                image->pixels[i].blue );
+            for(int j = 0; j < 6; j++) {
+                fprintf(img_file, "%d %d %d ",
+                    image->pixels[i].red,
+                    image->pixels[i].green,
+                    image->pixels[i].blue );
+            }
+            fprintf(img_file, "\n");
         }
-        fprintf(img_file, "\n");
         #ifdef DEBUG
         printf("done.\n"); 
         #endif
@@ -152,10 +155,22 @@ int main(int argc, char** argv) {
                 #endif
                 
                 struct Pixel* pixel = malloc(sizeof(struct Pixel*));
+                //Halve the red, green, and blue values.
                 pixel->red = image.pixels[i].red / 2;
                 pixel->green = image.pixels[i].green / 2;
                 pixel->blue = image.pixels[i].blue / 2;
-                
+                //Blur the pixels
+                for(int j = 1; j<=BLUR_AMOUNT && col + j < image.width; j++) {
+                    //Do it!
+                    pixel->red += (image.pixels[i+j].red *
+                        (0.5 / BLUR_AMOUNT));
+                    pixel->green += (image.pixels[i+j].green *
+                        (0.5 / BLUR_AMOUNT));
+                    pixel->blue += (image.pixels[i+j].blue *
+                        (0.5 / BLUR_AMOUNT));
+                }
+                //Point to the new pixel
+                //free(image.pixels[i]);
                 image.pixels[i] = *pixel;
 
                 #ifdef DEBUG
