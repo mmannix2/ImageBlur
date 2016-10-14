@@ -107,7 +107,7 @@ int write_file( const char* filename, struct Image* image) {
         
         //Write pixels
         #ifdef DEBUG
-        printf("Writing %d pixels: \n", image->width * image->height); 
+        printf("Writing %d pixels... ", image->width * image->height); 
         #endif
         for(int i = 0; i < image->width * image->height; i++) {
             for(int j = 0; j < 6; j++) {
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
         for(int row = 0; row < image.height; row++) {
             for(int col = 0; col < image.width; col++) {
                 int i = (image.width * row + col);
-                #ifdef DEBUG
+                #ifdef VERBOSE
                 printf("[%d] %d %d %d\n",
                         i,
                         image.pixels[i].red,
@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
                 //free(image.pixels[i]);
                 image.pixels[i] = *pixel;
 
-                #ifdef DEBUG
+                #ifdef VERBOSE
                 printf("[%d] %d %d %d\n",
                         i,
                         image.pixels[i].red,
