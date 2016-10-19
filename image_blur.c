@@ -4,6 +4,7 @@
 
 #define IDENTIFIER "P3"
 #define BLUR_AMOUNT 50
+#define PIXELS_PER_LINE 6
 
 #define DEBUG
 
@@ -110,13 +111,11 @@ int write_file( const char* filename, struct Image* image) {
         printf("Writing %d pixels... ", image->width * image->height); 
         #endif
         for(int i = 0; i < image->width * image->height; i++) {
-            //for(int j = 0; j < 6; j++) {
-                fprintf(img_file, "%d %d %d ",
-                    image->pixels[i].red,
-                    image->pixels[i].green,
-                    image->pixels[i].blue );
-            //}
-            if(i%6 == 0) {
+            fprintf(img_file, "%d %d %d ",
+                image->pixels[i].red,
+                image->pixels[i].green,
+                image->pixels[i].blue );
+            if(i % PIXELS_PER_LINE  == 0) {
                 fprintf(img_file, "\n");
             }
         }
@@ -149,13 +148,14 @@ int main(int argc, char** argv) {
             for(int col = 0; col < image.width; col++) {
                 int i = (image.width * row + col);
                 
-                unsigned char red, green, blue;
+                double red, green, blue;
                 //Halve the red, green, and blue values.
                 red = image.pixels[i].red / 2;
                 green = image.pixels[i].green / 2;
                 blue = image.pixels[i].blue / 2;
                 
                 //Blur the pixels
+                //TODO Change (0.5 / BLUR_AMOUNT) to handle pixels close to edge
                 for(int j = 1; j<=BLUR_AMOUNT && col + j < image.width; j++) {
                     red += (image.pixels[i+j].red * (0.5 / BLUR_AMOUNT));
                     green += (image.pixels[i+j].green * (0.5 / BLUR_AMOUNT));
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
                 }
                 
                 #ifdef VERBOSE
-                printf("[%d] %d %d %d -> %d %d %d\n",
+                printf("[%d] %d %d %d -> %.02f %.02f %.02f\n",
                         i,
                         image.pixels[i].red,
                         image.pixels[i].green,
@@ -174,9 +174,9 @@ int main(int argc, char** argv) {
                 #endif
                 
                 //Update colors
-                image.pixels[i].red = red;
-                image.pixels[i].green = green;
-                image.pixels[i].blue = blue;
+                image.pixels[i].red = (unsigned char) red;
+                image.pixels[i].green = (unsigned char) green;
+                image.pixels[i].blue = (unsigned char) blue;
             }
         }
     }
