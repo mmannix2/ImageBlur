@@ -110,13 +110,15 @@ int write_file( const char* filename, struct Image* image) {
         printf("Writing %d pixels... ", image->width * image->height); 
         #endif
         for(int i = 0; i < image->width * image->height; i++) {
-            for(int j = 0; j < 6; j++) {
+            //for(int j = 0; j < 6; j++) {
                 fprintf(img_file, "%d %d %d ",
                     image->pixels[i].red,
                     image->pixels[i].green,
                     image->pixels[i].blue );
+            //}
+            if(i%6 == 0) {
+                fprintf(img_file, "\n");
             }
-            fprintf(img_file, "\n");
         }
         #ifdef DEBUG
         printf("done.\n"); 
@@ -138,7 +140,7 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     
-    //Read in pixel data
+    //Read in pixel data from argv[1]
     read_file(argv[1], &image);
     
     //Blur the image
@@ -146,44 +148,40 @@ int main(int argc, char** argv) {
         for(int row = 0; row < image.height; row++) {
             for(int col = 0; col < image.width; col++) {
                 int i = (image.width * row + col);
-                #ifdef VERBOSE
-                printf("[%d] %d %d %d\n",
-                        i,
-                        image.pixels[i].red,
-                        image.pixels[i].green,
-                        image.pixels[i].blue );
-                #endif
                 
-                struct Pixel* pixel = malloc(sizeof(struct Pixel*));
+                unsigned char red, green, blue;
                 //Halve the red, green, and blue values.
-                pixel->red = image.pixels[i].red / 2;
-                pixel->green = image.pixels[i].green / 2;
-                pixel->blue = image.pixels[i].blue / 2;
+                red = image.pixels[i].red / 2;
+                green = image.pixels[i].green / 2;
+                blue = image.pixels[i].blue / 2;
+                
                 //Blur the pixels
                 for(int j = 1; j<=BLUR_AMOUNT && col + j < image.width; j++) {
-                    //Do it!
-                    pixel->red += (image.pixels[i+j].red *
-                        (0.5 / BLUR_AMOUNT));
-                    pixel->green += (image.pixels[i+j].green *
-                        (0.5 / BLUR_AMOUNT));
-                    pixel->blue += (image.pixels[i+j].blue *
-                        (0.5 / BLUR_AMOUNT));
+                    red += (image.pixels[i+j].red * (0.5 / BLUR_AMOUNT));
+                    green += (image.pixels[i+j].green * (0.5 / BLUR_AMOUNT));
+                    blue += (image.pixels[i+j].blue * (0.5 / BLUR_AMOUNT));
                 }
-                //Point to the new pixel
-                //free(image.pixels[i]);
-                image.pixels[i] = *pixel;
-
+                
                 #ifdef VERBOSE
-                printf("[%d] %d %d %d\n",
+                printf("[%d] %d %d %d -> %d %d %d\n",
                         i,
                         image.pixels[i].red,
                         image.pixels[i].green,
-                        image.pixels[i].blue );
+                        image.pixels[i].blue,
+                        red,
+                        green,
+                        blue );
                 #endif
+                
+                //Update colors
+                image.pixels[i].red = red;
+                image.pixels[i].green = green;
+                image.pixels[i].blue = blue;
             }
         }
     }
-    //Write pixel data
+    
+    //Write pixel data to argv[2]
     write_file(argv[2], &image);
     
     return 0;
