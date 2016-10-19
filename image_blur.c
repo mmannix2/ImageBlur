@@ -4,16 +4,18 @@
 
 #define IDENTIFIER "P3"
 #define BLUR_AMOUNT 50
-#define PIXELS_PER_LINE 6
+#define PIXELS_PER_LINE 6 //The number of pixels to write to file before \n
 
 #define DEBUG
 
+// Holds the data for one pixel
 struct Pixel {
     unsigned char red;
     unsigned char blue;
     unsigned char green;
 };
 
+// Holds data for the entire image
 struct Image {
     int width;
     int height;
@@ -21,10 +23,10 @@ struct Image {
 };
 
 /*  Populates an Image with data from the given filename
-    Returns 0 on success.
-    Returns -1 if filename could not be opened.
-    Returns 1 if filename does not follow .ppm file format.
-    */
+ *  Returns 0 on success.
+ *  Returns -1 if filename could not be opened.
+ *  Returns 1 if filename does not follow .ppm file format.
+ */
 int read_file(const char* filename, struct Image* image) {
     FILE* img_file = fopen(filename, "r");
     char identifier[2];
@@ -98,6 +100,10 @@ int read_file(const char* filename, struct Image* image) {
     }
 }
 
+/*  Writes a struct Image to the given filename
+ *  Returns 0 on success.
+ *  Returns -1 if writing to filename failed.
+ */
 int write_file( const char* filename, struct Image* image) {
     FILE* img_file = fopen(filename, "w");
     if(img_file != NULL) {
@@ -124,8 +130,12 @@ int write_file( const char* filename, struct Image* image) {
         #endif
 
         fclose(img_file);
+        return 0;
     } 
-    return 0;
+    else {
+        //Somthing went wrong :(
+        return -1;
+    }
 }
 
 int main(int argc, char** argv) {
@@ -140,8 +150,8 @@ int main(int argc, char** argv) {
     }
     
     //Read in pixel data from argv[1]
-    read_file(argv[1], &image);
-    
+    int status = read_file(argv[1], &image);
+
     //Blur the image
     if(image.pixels != NULL) {
         for(int row = 0; row < image.height; row++) {
@@ -154,12 +164,17 @@ int main(int argc, char** argv) {
                 green = image.pixels[i].green / 2;
                 blue = image.pixels[i].blue / 2;
                 
+                //Find the number of pixels to the right to use
+                int blur = BLUR_AMOUNT;
+                if(col + blur >= image.width) {
+                    blur = image.width - col - 1;
+                }
+                
                 //Blur the pixels
-                //TODO Change (0.5 / BLUR_AMOUNT) to handle pixels close to edge
-                for(int j = 1; j<=BLUR_AMOUNT && col + j < image.width; j++) {
-                    red += (image.pixels[i+j].red * (0.5 / BLUR_AMOUNT));
-                    green += (image.pixels[i+j].green * (0.5 / BLUR_AMOUNT));
-                    blue += (image.pixels[i+j].blue * (0.5 / BLUR_AMOUNT));
+                for(int j = 1; j <= blur; j++) {
+                    red += (image.pixels[i+j].red * (0.5 / blur));
+                    green += (image.pixels[i+j].green * (0.5 / blur));
+                    blue += (image.pixels[i+j].blue * (0.5 / blur));
                 }
                 
                 #ifdef VERBOSE
@@ -180,9 +195,11 @@ int main(int argc, char** argv) {
             }
         }
     }
-    
     //Write pixel data to argv[2]
     write_file(argv[2], &image);
+        
+    //printf("ERROR: %s could not be read.\n", argv[1]);
+    //printf("ERROR: %s does not follow .ppm format.\n", argv[1]);
     
     return 0;
 }
