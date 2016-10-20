@@ -2,11 +2,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <time.h>
+#include <omp.h>
+
 #define IDENTIFIER "P3"
 #define BLUR_AMOUNT 50
 #define PIXELS_PER_LINE 6 //The number of pixels to write to file before \n
 
-#define DEBUG
+//#define DEBUG
+#define TIME
 
 // Holds the data for one pixel
 struct Pixel {
@@ -27,7 +31,7 @@ struct Image {
  *  Returns -1 if filename could not be opened.
  *  Returns 1 if filename does not follow .ppm file format.
  */
-int read_file(const char* filename, struct Image* image) {
+int Image_read(struct Image* image, const char* filename) {
     FILE* img_file = fopen(filename, "r");
     char identifier[2];
     int width, height;
@@ -57,7 +61,7 @@ int read_file(const char* filename, struct Image* image) {
             width <= 0 ||
             height <= 0 ||
             *temp_r != 255) {
-            exit(1);
+            return(1);
         }
         
         //Allocate image->pixels
@@ -104,7 +108,7 @@ int read_file(const char* filename, struct Image* image) {
  *  Returns 0 on success.
  *  Returns -1 if writing to filename failed.
  */
-int write_file( const char* filename, struct Image* image) {
+int Image_write(struct Image* image, const char* filename) {
     FILE* img_file = fopen(filename, "w");
     if(img_file != NULL) {
         //Write IDENTIFIER, width, height, and max color value
@@ -138,9 +142,70 @@ int write_file( const char* filename, struct Image* image) {
     }
 }
 
+/*  Blurs each struct Pixel in given struct Image
+ *  image->pixels must not be null.
+ *  Returns 0 on success.
+ *  Returns -1 if image is NULL.
+ */
+int Image_blur(struct Image* image) {
+    if(image->pixels == NULL) {
+        return -1;
+    }
+    else {
+        #ifdef THREADS
+        #pragma omp parallel for num_threads(THREADS)
+        #endif
+        for(int row = 0; row < image->height; row++) {
+            for(int col = 0; col < image->width; col++) {
+                int i = (image->width * row + col);
+                
+                double red, green, blue;
+                //Halve the red, green, and blue values.
+                red = image->pixels[i].red / 2;
+                green = image->pixels[i].green / 2;
+                blue = image->pixels[i].blue / 2;
+                
+                //Find the number of pixels to the right to use
+                int blur = BLUR_AMOUNT;
+                if(col + blur >= image->width) {
+                    blur = image->width - col - 1;
+                }
+                
+                //Blur the pixels
+                for(int j = 1; j <= blur; j++) {
+                    red += (image->pixels[i+j].red * (0.5 / blur));
+                    green += (image->pixels[i+j].green * (0.5 / blur));
+                    blue += (image->pixels[i+j].blue * (0.5 / blur));
+                }
+                
+                #ifdef VERBOSE
+                printf("[%d] %d %d %d -> %.02f %.02f %.02f\n",
+                        i,
+                        image->pixels[i].red,
+                        image->pixels[i].green,
+                        image->pixels[i].blue,
+                        red,
+                        green,
+                        blue );
+                #endif
+                
+                //Update colors
+                image->pixels[i].red = (unsigned char) red;
+                image->pixels[i].green = (unsigned char) green;
+                image->pixels[i].blue = (unsigned char) blue;
+            }
+        }
+        return 0;
+    }
+}
+
 int main(int argc, char** argv) {
     //Variables
     struct Image image;
+    int status;
+    #ifdef TIME
+    time_t start, current;
+    #endif
 
     //Check arguments
     if(argc != 3) {
@@ -149,57 +214,57 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     
+    #ifdef TIME 
+    time(&start);
+    #endif
+    
     //Read in pixel data from argv[1]
-    int status = read_file(argv[1], &image);
+    status = Image_read(&image, argv[1]);
+    
+    #ifdef TIME
+    time(&current);
+    printf("Time to read file: \t%fs.\n", difftime(current, start)); 
+    #endif
 
-    //Blur the image
-    if(image.pixels != NULL) {
-        for(int row = 0; row < image.height; row++) {
-            for(int col = 0; col < image.width; col++) {
-                int i = (image.width * row + col);
-                
-                double red, green, blue;
-                //Halve the red, green, and blue values.
-                red = image.pixels[i].red / 2;
-                green = image.pixels[i].green / 2;
-                blue = image.pixels[i].blue / 2;
-                
-                //Find the number of pixels to the right to use
-                int blur = BLUR_AMOUNT;
-                if(col + blur >= image.width) {
-                    blur = image.width - col - 1;
-                }
-                
-                //Blur the pixels
-                for(int j = 1; j <= blur; j++) {
-                    red += (image.pixels[i+j].red * (0.5 / blur));
-                    green += (image.pixels[i+j].green * (0.5 / blur));
-                    blue += (image.pixels[i+j].blue * (0.5 / blur));
-                }
-                
-                #ifdef VERBOSE
-                printf("[%d] %d %d %d -> %.02f %.02f %.02f\n",
-                        i,
-                        image.pixels[i].red,
-                        image.pixels[i].green,
-                        image.pixels[i].blue,
-                        red,
-                        green,
-                        blue );
-                #endif
-                
-                //Update colors
-                image.pixels[i].red = (unsigned char) red;
-                image.pixels[i].green = (unsigned char) green;
-                image.pixels[i].blue = (unsigned char) blue;
-            }
+    if(status == 0) {
+        #ifdef TIME 
+        time(&start);
+        #endif
+        
+        //Blur the image
+        Image_blur(&image);
+        
+        #ifdef TIME
+        time(&current);
+        printf("Time to blur Image: \t%fs.\n", difftime(current, start)); 
+        #endif
+        
+        #ifdef TIME
+        time(&start);
+        #endif
+
+        //Write pixel data to argv[2]
+        status = Image_write(&image, argv[2]);
+        
+        #ifdef TIME
+        printf("Time to write file:\t%fs.\n", difftime(time(NULL), start)); 
+        #endif
+        
+        if( status == 0) {
+            return 0;
+        }
+        else {
+            printf("ERROR: Unable to write to %s.\n", argv[2]);
+            return -1;
         }
     }
-    //Write pixel data to argv[2]
-    write_file(argv[2], &image);
-        
-    //printf("ERROR: %s could not be read.\n", argv[1]);
-    //printf("ERROR: %s does not follow .ppm format.\n", argv[1]);
-    
-    return 0;
+    else {
+        if(status == -1) {
+            printf("ERROR: Unable to open %s.\n", argv[1]);
+        }
+        else {
+            printf("ERROR: %s does not follow .ppm format.\n", argv[1]);
+        }
+        return -1;
+    }
 }
